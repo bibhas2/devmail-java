@@ -43,7 +43,7 @@ public class IOLoop {
         while (true) {
             selector.select();
 
-            System.out.println("SELECT returned");
+            //System.out.println("SELECT returned");
 
             Set<SelectionKey> keys = selector.selectedKeys();
             Iterator<SelectionKey> i = keys.iterator();

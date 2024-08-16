@@ -1,8 +1,10 @@
 package com.mobiarch;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
@@ -16,6 +18,8 @@ public class SMTPState implements EventListener {
     ByteBuffer in;
     ByteBuffer out;
     SMTPParseState state = SMTPParseState.STATE_READ_CMD;
+    RandomAccessFile saveFile = null;
+    FileChannel saveFileChannel = null;
 
     public static void print(ByteBuffer buff) {
         if (buff == null) {
@@ -119,8 +123,39 @@ public class SMTPState implements EventListener {
                 //Start reading into the beginning of buffer
                 in.clear();
             }
-        }
+        } else if (state == SMTPParseState.STATE_READ_DATA) {
+            in.flip();
 
+            System.out.printf("Received DATA: %d\n", in.remaining());
+
+            //See if we received the end of the mail file message: 
+            // \r\n.\r\n
+            if (in.remaining() >= 5 &&
+                in.get(in.limit() - 5) == '\r' &&
+                in.get(in.limit() - 4) == '\n' &&
+                in.get(in.limit() - 3) == '.' &&
+                in.get(in.limit() - 2) == '\r' &&
+                in.get(in.limit() - 1) == '\n') {
+
+                in.limit(in.limit() - 5);
+                saveFileChannel.write(in);
+
+                System.out.printf("Closing mail file.\n");
+                saveFileChannel.close();
+                saveFile.close();
+                saveFileChannel = null;
+                saveFile = null;
+
+                state = SMTPParseState.STATE_READ_CMD;
+
+                //Start reading into the beginning of buffer
+                in.clear();
+            } else {
+                saveFileChannel.write(in);
+                //Start reading into the beginning of buffer
+                in.clear();
+            }
+        }
     }
 
     private void onCommand(SelectionKey key) throws IOException {
@@ -135,6 +170,15 @@ public class SMTPState implements EventListener {
         } else if (isCommand("RCPT TO:")) {
             sendReply(key,  "250 Ok\r\n");
         } else if (isCommand("DATA")) {
+            sendReply(key,  "354 Send message, end with a \".\" on a line by itself\r\n");
+
+            var fileName = String.format("mail/%d.eml", System.nanoTime());
+
+            System.out.printf("Saving mail to: %s\n", fileName);
+
+            saveFile = new RandomAccessFile(fileName, "rw");
+            saveFileChannel = saveFile.getChannel();
+            state = SMTPParseState.STATE_READ_DATA;
         } else if (isCommand("QUIT")) {
             sendReply(key, "221 Bye\r\n");
         } else {
