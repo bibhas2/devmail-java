@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
-public class IOState implements EventListener {
+public class SMTPState implements EventListener {
     private enum SMTPParseState {
         STATE_NONE,
         STATE_READ_CMD,
@@ -30,7 +30,7 @@ public class IOState implements EventListener {
         }
     }
 
-    public IOState() {
+    public SMTPState() {
         //in = new ByteArrayInputStream(new byte[256]);
         in = ByteBuffer.allocate(256);
         out = ByteBuffer.allocate(256);
