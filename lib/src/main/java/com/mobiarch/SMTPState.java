@@ -64,7 +64,7 @@ public class SMTPState implements EventListener {
             throw new RuntimeException("Yet to write bytes: " + out.remaining());
         }
 
-        out.clear();
+        out.clear(); //Set position=0
 
         int most = Math.min(txt.length(), out.limit());
 
@@ -72,7 +72,7 @@ public class SMTPState implements EventListener {
             out.put((byte) txt.charAt(i));
         }
 
-        out.flip();
+        out.flip(); //Set position=0 and limit correctly
 
         key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
     }
@@ -165,8 +165,6 @@ public class SMTPState implements EventListener {
             }
         } else {
             //We are done writing
-            out.clear();
-            out.flip(); //Get it ready for writing again
             key.interestOps(SelectionKey.OP_READ);
         }
     }
