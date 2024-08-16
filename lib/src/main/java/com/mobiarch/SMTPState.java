@@ -58,8 +58,9 @@ public class SMTPState implements EventListener {
 
     @Override
     public void onAccept(SelectionKey key) throws IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'onAccept'");
+        state = SMTPParseState.STATE_READ_CMD;
+
+        sendReply(key, "220 example.com\r\n");
     }
 
     public void sendReply(SelectionKey key, String txt) throws IOException {
@@ -67,6 +68,8 @@ public class SMTPState implements EventListener {
         if (out.hasRemaining()) {
             throw new RuntimeException("Yet to write bytes: " + out.remaining());
         }
+
+        System.out.printf("SMTP: %s", txt);
 
         out.clear(); //Set position=0
 
@@ -114,9 +117,8 @@ public class SMTPState implements EventListener {
                 //buffer ready to read from.
                 in.flip();
 
-                System.out.print("Command: [");
+                System.out.print("CLI: ");
                 print(in);
-                System.out.println("]");
 
                 onCommand(key);
 
@@ -125,8 +127,6 @@ public class SMTPState implements EventListener {
             }
         } else if (state == SMTPParseState.STATE_READ_DATA) {
             in.flip();
-
-            System.out.printf("Received DATA: %d\n", in.remaining());
 
             //See if we received the end of the mail file message: 
             // \r\n.\r\n
@@ -150,6 +150,8 @@ public class SMTPState implements EventListener {
 
                 //Start reading into the beginning of buffer
                 in.clear();
+
+                sendReply(key, "250 Ok\r\n");
             } else {
                 saveFileChannel.write(in);
                 //Start reading into the beginning of buffer
@@ -194,6 +196,8 @@ public class SMTPState implements EventListener {
             int sz = 0;
 
             try {
+                //System.out.printf("Writing %d bytes\n", out.remaining());
+
                 sz = client.write(out);
             } catch (Exception e) {
                 sz = -1;

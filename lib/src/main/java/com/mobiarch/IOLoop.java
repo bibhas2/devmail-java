@@ -19,8 +19,6 @@ public class IOLoop {
     }
 
     public void onAccept(Selector selector, SelectionKey key) throws IOException {
-        System.out.println("Connection Accepted...");
-
         // Accept the connection and set non-blocking mode
         var socket = (ServerSocketChannel) key.channel();
         SocketChannel client = socket.accept();
@@ -31,14 +29,18 @@ public class IOLoop {
         if ("SMTP".equals(key.attachment())) {
             System.out.println("Accepted client type: SMTP");
 
-            client.register(selector, SelectionKey.OP_READ, new SMTPState());
+            var smtp = new SMTPState();
+
+            var clientKey = client.register(selector, SelectionKey.OP_READ, smtp);
+
+            smtp.onAccept(clientKey);
         }
     }
 
     public void begin() throws IOException {
         Selector selector = Selector.open();
 
-        startServer(selector, "SMTP", 8089);
+        startServer(selector, "SMTP", 2525);
         
         while (true) {
             selector.select();
