@@ -41,7 +41,7 @@ public class BaseState {
             throw new RuntimeException("Yet to write bytes: " + out.remaining());
         }
 
-        System.out.printf("SMTP: %s", txt);
+        System.out.printf("SRV: %s", txt);
 
         out.clear(); //Set position=0
 

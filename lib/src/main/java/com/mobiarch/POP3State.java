@@ -84,8 +84,9 @@ public class POP3State extends BaseState implements EventListener {
 
     @Override
     public void onWritePossible(SelectionKey key) throws IOException {
+        SocketChannel client = (SocketChannel) key.channel();
+
         if (out.hasRemaining()) {
-            SocketChannel client = (SocketChannel) key.channel();
             int sz = 0;
 
             try {
@@ -104,7 +105,14 @@ public class POP3State extends BaseState implements EventListener {
             }
         } else {
             //We are done writing
-            key.interestOps(SelectionKey.OP_READ);
+            if (state == POPParseState.STATE_BYE) {
+                System.out.println("Closing connection.");
+
+                client.close();
+                key.cancel();
+            } else {
+                key.interestOps(SelectionKey.OP_READ);
+            }
         }
     }
 
@@ -119,6 +127,8 @@ public class POP3State extends BaseState implements EventListener {
         } else if (isCommand("UIDL")) {
         } else if (isCommand("LIST")) {
         } else if (isCommand("QUIT")) {
+            state = POPParseState.STATE_BYE;
+
             sendReply(key, "+OK Bye\r\n");
         } else if (isCommand("RETR")) {
         } else if (isCommand("TOP")) {
