@@ -107,6 +107,9 @@ public class SMTPState implements EventListener {
             key.cancel();
 
             return;
+        } else if (sz == 0) {
+            //Nothing's read
+            return;
         }
 
         if (state == SMTPParseState.STATE_READ_CMD) {
@@ -128,18 +131,11 @@ public class SMTPState implements EventListener {
         } else if (state == SMTPParseState.STATE_READ_DATA) {
             in.flip();
 
-            //See if we received the end of the mail file message: 
-            // \r\n.\r\n
-            if (in.remaining() >= 5 &&
-                in.get(in.limit() - 5) == '\r' &&
-                in.get(in.limit() - 4) == '\n' &&
-                in.get(in.limit() - 3) == '.' &&
-                in.get(in.limit() - 2) == '\r' &&
-                in.get(in.limit() - 1) == '\n') {
+            saveFileChannel.write(in);
 
-                in.limit(in.limit() - 5);
-                saveFileChannel.write(in);
-
+            //See if we received the end of the 
+            //mail file message: \r\n.\r\n
+            if (isEndOfData()) {
                 System.out.printf("Closing mail file.\n");
                 saveFileChannel.close();
                 saveFile.close();
@@ -153,10 +149,60 @@ public class SMTPState implements EventListener {
 
                 sendReply(key, "250 Ok\r\n");
             } else {
-                saveFileChannel.write(in);
+                //More DATA available.
                 //Start reading into the beginning of buffer
                 in.clear();
             }
+        }
+    }
+
+    /**
+     * Tries to determine if the end of the DATA segment has been reached.
+     * Because we don't store the email body in memory it is hard
+     * to detect if we're seeing the last "\r\n.\r\n" sentinel byte
+     * sequence. Instead, we inspect the saved file.
+     * 
+     * @return true if the end of the email body in DATA segment has been 
+     * received.
+     * @throws IOException
+     */
+    private boolean isEndOfData() throws IOException {
+        //If the last byte of DATA read is not a \n 
+        //Then this cannot be the end
+        if (in.get(in.limit() - 1) != '\n') {
+            return false;
+        }
+
+        var len = saveFile.length();
+
+        if (len < 5) {
+            return false;
+        }
+
+        //Read the last 5 bytes in the file
+        saveFile.seek(len - 5);
+
+        byte[] b = {0, 0, 0, 0, 0};
+
+        if (saveFile.read(b) != 5) {
+            throw new IOException("Could not read last 5 bytes of email file.");
+        }
+
+        //Check for sentinel byte sequence
+        if (b[0] == '\r' &&
+            b[1] == '\n' &&
+            b[2] == '.' &&
+            b[3] == '\r' &&
+            b[4] == '\n') {
+            //Truncate the file to get rid of
+            //".\r\n".
+            saveFile.setLength(len - 3);
+
+            return true;
+        } else {
+            //At this point the file pointer should
+            //be back at the very end.
+            return false;
         }
     }
 
@@ -196,8 +242,6 @@ public class SMTPState implements EventListener {
             int sz = 0;
 
             try {
-                //System.out.printf("Writing %d bytes\n", out.remaining());
-
                 sz = client.write(out);
             } catch (Exception e) {
                 sz = -1;
