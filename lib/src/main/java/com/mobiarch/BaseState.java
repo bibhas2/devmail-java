@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 
 public class BaseState {
+    protected static final String MAIL_DIR = "mail";
+    
     protected ByteBuffer in;
     protected ByteBuffer out;
 

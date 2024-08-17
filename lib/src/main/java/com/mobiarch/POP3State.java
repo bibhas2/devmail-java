@@ -1,10 +1,12 @@
 package com.mobiarch;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 
 public class POP3State extends BaseState implements EventListener {
     enum POPParseState {
@@ -20,6 +22,7 @@ public class POP3State extends BaseState implements EventListener {
     } 
 
     POPParseState state = POPParseState.STATE_NONE;
+    ArrayList<File> messageList = new ArrayList<>();
 
     public POP3State() {
         in = ByteBuffer.allocate(256);
@@ -122,6 +125,17 @@ public class POP3State extends BaseState implements EventListener {
         } else if (isCommand("PASS")) {
             sendReply(key, "+OK Mailbox open\r\n");
         } else if (isCommand("STAT")) {
+            loadMessageList();
+
+            int sz = 0;
+
+            for (var f : messageList) {
+                sz += f.length();
+            }
+
+            sendReply(key, 
+                String.format("+OK %d %d\r\n", 
+                    messageList.size(), sz));
         } else if (isCommand("DELE ")) {
         } else if (isCommand("UIDL ")) {
         } else if (isCommand("UIDL")) {
@@ -136,6 +150,18 @@ public class POP3State extends BaseState implements EventListener {
             System.out.println("Unknown command");
 
             sendReply(key, "-ERR\r\n");
+        }
+    }
+
+    private void loadMessageList() {
+        messageList.clear();
+
+        var dir = new File(MAIL_DIR);
+
+        for (var f : dir.listFiles()) {
+            if (f.isFile()) {
+                messageList.add(f);
+            }
         }
     }
 }
