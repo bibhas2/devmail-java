@@ -8,52 +8,22 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
-public class SMTPState implements EventListener {
+public class SMTPState extends BaseState implements EventListener {
     private enum SMTPParseState {
         STATE_NONE,
         STATE_READ_CMD,
         STATE_READ_DATA
     } 
 
-    ByteBuffer in;
-    ByteBuffer out;
     SMTPParseState state = SMTPParseState.STATE_READ_CMD;
     RandomAccessFile saveFile = null;
     FileChannel saveFileChannel = null;
 
-    public static void print(ByteBuffer buff) {
-        if (buff == null) {
-            System.out.println("null");
-
-            return;
-        }
-
-        //Dump bytes
-        for (int i = 0; i < buff.limit(); ++i) {
-            System.out.write((int) buff.get(i));
-        }
-    }
-
     public SMTPState() {
-        //in = new ByteArrayInputStream(new byte[256]);
         in = ByteBuffer.allocate(256);
         out = ByteBuffer.allocate(256);
 
         out.flip(); //Ready to write to
-    }
-
-    private boolean isCommand(String cmd) {
-        int most = Math.min(cmd.length(), in.limit());
-
-        for (int i = 0; i < most; ++i) {
-            if (cmd.charAt(i) != in.get()) {
-                in.rewind();
-
-                return false;
-            }
-        }
-
-        return true;
     }
 
     @Override
@@ -63,26 +33,6 @@ public class SMTPState implements EventListener {
         sendReply(key, "220 example.com\r\n");
     }
 
-    public void sendReply(SelectionKey key, String txt) throws IOException {
-        //We should not be in the middle of a write already
-        if (out.hasRemaining()) {
-            throw new RuntimeException("Yet to write bytes: " + out.remaining());
-        }
-
-        System.out.printf("SMTP: %s", txt);
-
-        out.clear(); //Set position=0
-
-        int most = Math.min(txt.length(), out.limit());
-
-        for (int i = 0; i < most; ++i) {
-            out.put((byte) txt.charAt(i));
-        }
-
-        out.flip(); //Set position=0 and limit correctly
-
-        key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-    }
 
     @Override
     public void onReadAvailable(SelectionKey key) throws IOException {
@@ -121,7 +71,7 @@ public class SMTPState implements EventListener {
                 in.flip();
 
                 System.out.print("CLI: ");
-                print(in);
+                BaseState.print(in);
 
                 onCommand(key);
 

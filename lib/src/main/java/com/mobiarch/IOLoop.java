@@ -34,6 +34,14 @@ public class IOLoop {
             var clientKey = client.register(selector, SelectionKey.OP_READ, smtp);
 
             smtp.onAccept(clientKey);
+        } else if ("POP3".equals(key.attachment())) {
+            System.out.println("Accepted client type: POP3");
+
+            var pop3 = new POP3State();
+
+            var clientKey = client.register(selector, SelectionKey.OP_READ, pop3);
+
+            pop3.onAccept(clientKey);
         }
     }
 
@@ -41,6 +49,7 @@ public class IOLoop {
         Selector selector = Selector.open();
 
         startServer(selector, "SMTP", 2525);
+        startServer(selector, "POP3", 1100);
         
         while (true) {
             selector.select();
