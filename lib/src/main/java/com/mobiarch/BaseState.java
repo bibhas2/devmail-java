@@ -89,8 +89,6 @@ public class BaseState {
 
         end = buff.position() - 1;
 
-        System.out.printf("Start: %d End: %d\n", start, end);
-
         for (int i = end; i >= start; --i) {
             int ch = buff.get(i);
      
@@ -114,7 +112,7 @@ public class BaseState {
      
         return result;
     }
-    
+
     protected boolean isCommand(String cmd) {
         int most = Math.min(cmd.length(), in.limit());
 

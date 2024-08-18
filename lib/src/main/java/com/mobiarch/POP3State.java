@@ -169,6 +169,20 @@ public class POP3State extends BaseState implements EventListener {
                 String.format("+OK %d %d\r\n", 
                     messageList.size(), sz));
         } else if (isCommand("DELE ")) {
+            //One based index of email message
+            int idx = parseInt(in);
+
+            if (idx > messageList.size()) {
+                sendReply(key, "-ERR\r\n");
+            } else {
+                var file = messageList.get(idx - 1);
+
+                System.out.printf("Deleting: %s\n", file.getName());
+
+                file.delete();
+
+                sendReply(key, "+OK Message deleted\r\n");
+            }
         } else if (isCommand("UIDL ")) {
             //This is UIDL with arg
             //One based index of email message
