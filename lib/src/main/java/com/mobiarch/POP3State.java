@@ -132,6 +132,21 @@ public class POP3State extends BaseState implements EventListener {
                     
                     ++messageIndex;
                 }
+            } else if (state == POPParseState.STATE_WRITE_UIDL_LIST) {
+                if (messageIndex == messageList.size()) {
+                    //We're finished writing the LIST.
+                    //Send the end sentinels
+                    sendReply(key, ".\r\n");
+
+                    state = POPParseState.STATE_READ_CMD;
+                } else {
+                    //Send file stat
+                    sendReply(key, 
+                        String.format("%d %s\r\n", 
+                        messageIndex + 1, messageList.get(messageIndex).getName()));
+                    
+                    ++messageIndex;
+                }
             }
         }
     }
@@ -156,6 +171,12 @@ public class POP3State extends BaseState implements EventListener {
         } else if (isCommand("DELE ")) {
         } else if (isCommand("UIDL ")) {
         } else if (isCommand("UIDL")) {
+            state = POPParseState.STATE_WRITE_UIDL_LIST;
+            messageIndex = 0;
+
+            loadMessageList();
+
+            sendReply(key, "+OK\r\n");
         } else if (isCommand("LIST")) {
             state = POPParseState.STATE_WRITE_LIST;
 
