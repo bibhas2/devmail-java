@@ -23,6 +23,7 @@ public class POP3State extends BaseState implements EventListener {
 
     POPParseState state = POPParseState.STATE_NONE;
     ArrayList<File> messageList = new ArrayList<>();
+    int messageIndex = 0;
 
     public POP3State() {
         in = ByteBuffer.allocate(256);
@@ -107,14 +108,30 @@ public class POP3State extends BaseState implements EventListener {
                 return;    
             }
         } else {
-            //We are done writing
+            //We are done writing. Cancel further 
+            //writeability test
+            key.interestOps(SelectionKey.OP_READ);
+
             if (state == POPParseState.STATE_BYE) {
                 System.out.println("Closing connection.");
 
                 client.close();
                 key.cancel();
-            } else {
-                key.interestOps(SelectionKey.OP_READ);
+            } else if (state == POPParseState.STATE_WRITE_LIST) {
+                if (messageIndex == messageList.size()) {
+                    //We're finished writing the LIST.
+                    //Send the end sentinels
+                    sendReply(key, ".\r\n");
+
+                    state = POPParseState.STATE_READ_CMD;
+                } else {
+                    //Send file stat
+                    sendReply(key, 
+                        String.format("%d %d\r\n", 
+                        messageIndex + 1, messageList.get(messageIndex).length()));
+                    
+                    ++messageIndex;
+                }
             }
         }
     }
@@ -140,6 +157,12 @@ public class POP3State extends BaseState implements EventListener {
         } else if (isCommand("UIDL ")) {
         } else if (isCommand("UIDL")) {
         } else if (isCommand("LIST")) {
+            state = POPParseState.STATE_WRITE_LIST;
+
+            messageIndex = 0;
+            loadMessageList(); 
+            
+            sendReply(key, "+OK Mailbox scan listing follows\r\n");
         } else if (isCommand("QUIT")) {
             state = POPParseState.STATE_BYE;
 
