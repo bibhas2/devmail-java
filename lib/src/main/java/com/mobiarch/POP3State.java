@@ -19,7 +19,7 @@ public class POP3State extends BaseState implements EventListener {
         STATE_WRITE_UIDL_LIST,
         STATE_WRITE_RETR_HEADER,
         STATE_WRITE_TOP_HEADER,
-        STATE_WRITE_MSG_HEADER,
+        STATE_WRITE_MSG_TOP,
         STATE_WRITE_MSG,
         STATE_BYE
     } 
@@ -27,6 +27,7 @@ public class POP3State extends BaseState implements EventListener {
     POPParseState state = POPParseState.STATE_NONE;
     ArrayList<File> messageList = new ArrayList<>();
     int messageIndex = 0;
+    int topLines = 0;
     MappedByteBuffer map = null;
 
     public POP3State() {
@@ -112,7 +113,6 @@ public class POP3State extends BaseState implements EventListener {
                 return;    
             }
         } else if (map != null && map.hasRemaining()) {
-            System.out.printf("Writing map. Remaining: %d\n", map.remaining());
             int sz = 0;
 
             try {
@@ -191,6 +191,70 @@ public class POP3State extends BaseState implements EventListener {
                 sendReply(key, "\r\n.\r\n");
 
                 state = POPParseState.STATE_READ_CMD;
+            } else if (state == POPParseState.STATE_WRITE_TOP_HEADER) {
+                var fileName = String.format("%s/%s", MAIL_DIR, messageList.get(messageIndex).getName());
+
+                try (var file = new RandomAccessFile(fileName, "r")) {
+                    //Memory map the file.
+                    //There's no need to flip it.
+                    //Position and limit already set for reading
+                    map = file.getChannel()
+                        .map(FileChannel.MapMode.READ_ONLY, 0, file.length());
+
+                    locateTopLines();
+                    map.flip(); //Get it ready to read from
+
+                    state = POPParseState.STATE_WRITE_MSG_TOP;
+
+                    key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                }
+            } else if (state == POPParseState.STATE_WRITE_MSG_TOP) {
+                //We're done sending the message body.
+                map = null; //Hopefully GC will do the unmapping
+
+                //Send the sentinel bytes
+                sendReply(key, "\r\n.\r\n");
+
+                state = POPParseState.STATE_READ_CMD;
+            }
+        }
+    }
+
+    /**
+     * Moves the position to the end of header+top n lines
+     * of the message.
+     */
+    private void locateTopLines() {
+        //Find the header
+        int lineLength = 0;
+
+        while (map.hasRemaining()) {
+            ++lineLength;
+
+            if (map.get() == '\n') {
+                if (lineLength == 2) {
+                    //Empty line is the end of header
+                    break;
+                } else {
+                    //Next line
+                    lineLength = 0;
+                }
+            }
+        }
+
+        if (topLines == 0) {
+            return;
+        }
+
+        int lineCount = 0;
+
+        while (map.hasRemaining()) {
+            if (map.get() == '\n') {
+                ++lineCount;
+
+                if (lineCount == topLines) {
+                    break;
+                }
             }
         }
     }
@@ -271,7 +335,20 @@ public class POP3State extends BaseState implements EventListener {
                         String.format("+OK %d octate\r\n", 
                         messageList.get(idx - 1).length()));
             }
-        } else if (isCommand("TOP")) {
+        } else if (isCommand("TOP ")) {
+            //One based index of email message
+            int idx = parseInt(in);
+
+            if (idx > messageList.size()) {
+                sendReply(key, "-ERR\r\n");
+            } else {
+                state = POPParseState.STATE_WRITE_TOP_HEADER;
+                messageIndex = idx - 1;
+
+                topLines = parseInt(in);
+
+                sendReply(key, "+OK top of message follows\r\n");
+            }
         } else {
             System.out.println("Unknown command");
 
