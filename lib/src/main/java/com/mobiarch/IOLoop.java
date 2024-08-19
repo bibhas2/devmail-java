@@ -13,7 +13,7 @@ public class IOLoop {
     private void startServer(Selector selector, String type, int port) throws IOException {
         var socket = ServerSocketChannel.open();
 
-        socket.socket().bind(new InetSocketAddress("localhost", port));
+        socket.socket().bind(new InetSocketAddress(port));
         socket.configureBlocking(false);
         socket.register(selector, SelectionKey.OP_ACCEPT, type);
     }
