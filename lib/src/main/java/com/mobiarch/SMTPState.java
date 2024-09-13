@@ -92,6 +92,7 @@ public class SMTPState extends BaseState implements EventListener {
             int start = Math.max(0, in.limit() - 5);
             
             for (int i = start; i < in.limit(); ++i) {
+                //Add to the fixed length queue
                 msgEnd.add(in.get(i));
             }
 
@@ -130,8 +131,6 @@ public class SMTPState extends BaseState implements EventListener {
 
                 sendReply(key, "250 Ok\r\n");
             } else {
-                System.out.printf("More DATA expected.\n");
-
                 //More DATA available.
                 //Start reading into the beginning of buffer
                 in.clear();
