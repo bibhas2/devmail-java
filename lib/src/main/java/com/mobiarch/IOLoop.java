@@ -11,6 +11,8 @@ import java.util.Set;
 
 public class IOLoop {
     private void startServer(Selector selector, String type, int port) throws IOException {
+        System.out.printf("Starting %s server at port %d\n", type, port);
+        
         var socket = ServerSocketChannel.open();
 
         socket.socket().bind(new InetSocketAddress(port));
