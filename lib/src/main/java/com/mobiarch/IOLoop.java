@@ -56,8 +56,6 @@ public class IOLoop {
         while (true) {
             selector.select();
 
-            //System.out.println("SELECT returned");
-
             Set<SelectionKey> keys = selector.selectedKeys();
             Iterator<SelectionKey> i = keys.iterator();
 
@@ -68,13 +66,10 @@ public class IOLoop {
                     // New client has been accepted
                     onAccept(selector, key);
                 } else if (key.isReadable()) {
-                    //System.out.println("READABLE");
-                    // We can run non-blocking operation READ on our client
                     var listener = (EventListener) key.attachment();
 
                     listener.onReadAvailable(key);
                 } else if (key.isWritable()) {
-                    //System.out.println("WRITABLE");
                     var listener = (EventListener) key.attachment();
 
                     listener.onWritePossible(key);
@@ -82,6 +77,11 @@ public class IOLoop {
                     System.out.println("UNKNOWN SELECT");
                 }
 
+                /*
+                 * The SelectionKey must be removed from the Set.
+                 * Otherwise, this event will be reported again by 
+                 * selector.select().
+                 */
                 i.remove();
             }
         }
