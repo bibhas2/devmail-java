@@ -4,10 +4,104 @@
 package org.example;
 
 import org.junit.Test;
+
+import com.mobiarch.CircBuff;
+
 import static org.junit.Assert.*;
 
 public class LibraryTest {
-    @Test public void someLibraryMethodReturnsTrue() {
-       
+    @Test public void testAdd() {
+        var b = new CircBuff(4);
+
+        assertEquals(0, b.add());
+        assertEquals(1, b.add());
+        assertEquals(2, b.add());
+        assertEquals(3, b.add());
+        assertEquals(0, b.add());
+        assertEquals(1, b.add());
+    }
+
+    @Test public void testAddArray() {
+        int[] a = {0, 0, 0, 0};
+        var b = new CircBuff(4);
+
+        a[b.add()] = 1;
+        a[b.add()] = 2;
+        a[b.add()] = 3;
+        a[b.add()] = 4;
+
+        int[] e1 = {1, 2, 3, 4};
+
+        assertArrayEquals(e1, a);
+
+        a[b.add()] = 5;
+        a[b.add()] = 6;
+
+        int[] e2 = {5, 6, 3, 4};
+
+        assertArrayEquals(e2, a);
+    }
+
+    private void verifyBuffer(CircBuff b, int[] expected, int[] storage) {
+        assertEquals(expected.length, b.size());
+
+        for (int i = 0; i < b.size(); ++i) {
+            assertEquals(expected[i], storage[b.at(i)]);
+        }
+    }
+
+    @Test public void testLoop() {
+        int[] a = {0, 0, 0, 0};
+        var b = new CircBuff(4);
+
+        int[] e0 = {};
+
+        verifyBuffer(b, e0, a);
+
+        a[b.add()] = 1;
+        a[b.add()] = 2;
+        a[b.add()] = 3;
+
+        int[] e1 = {1, 2, 3};
+
+        verifyBuffer(b, e1, a);
+
+        a[b.add()] = 4;
+        a[b.add()] = 5;
+        a[b.add()] = 6;
+
+        int[] e2 = {3, 4, 5, 6};
+
+        verifyBuffer(b, e2, a);
+    }
+
+    @Test public void testTake() {
+        int[] a = {0, 0, 0, 0};
+        var b = new CircBuff(4);
+
+        a[b.add()] = 1;
+        a[b.add()] = 2;
+        a[b.add()] = 3;
+
+        assertEquals(1, a[b.take()]);
+
+        int[] e1 = {2, 3};
+
+        verifyBuffer(b, e1, a);
+
+        b.clear();
+
+        a[b.add()] = 1;
+        a[b.add()] = 2;
+        a[b.add()] = 3;
+        a[b.add()] = 4;
+        a[b.add()] = 5;
+        a[b.add()] = 6;
+
+        assertEquals(3, a[b.take()]);
+
+        int[] e2 = {4, 5, 6};
+
+        verifyBuffer(b, e2, a);
     }
 }

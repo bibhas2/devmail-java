@@ -18,7 +18,8 @@ public class SMTPState extends BaseState implements EventListener {
     SMTPParseState state = SMTPParseState.STATE_READ_CMD;
     RandomAccessFile saveFile = null;
     FileChannel saveFileChannel = null;
-    FixedQueue<Byte> msgEnd = new FixedQueue<>(5);
+    CircBuff msgEndBuff = new CircBuff(5);
+    byte[] msgEnd = new byte[5];
 
     public SMTPState() {
         in = ByteBuffer.allocate(256);
@@ -93,15 +94,15 @@ public class SMTPState extends BaseState implements EventListener {
             
             for (int i = start; i < in.limit(); ++i) {
                 //Add to the fixed length queue
-                msgEnd.add(in.get(i));
+                msgEnd[msgEndBuff.add()] = in.get(i);
             }
 
-            if (msgEnd.size() == 5) {
+            if (msgEndBuff.size() == 5) {
                 byte[] endBytes = {'\r', '\n', '.', '\r', '\n'};
-                int i = 0;
+                
 
-                for (var b : msgEnd) {
-                    isEndOfData = b == endBytes[i++];
+                for (int i = 0; i < msgEndBuff.size(); ++i) {
+                    isEndOfData = msgEnd[msgEndBuff.at(i)] == endBytes[i];
 
                     if (!isEndOfData) {
                         break;
@@ -128,6 +129,7 @@ public class SMTPState extends BaseState implements EventListener {
 
                 //Start reading into the beginning of buffer
                 in.clear();
+                msgEndBuff.clear();
 
                 sendReply(key, "250 Ok\r\n");
             } else {
@@ -158,7 +160,7 @@ public class SMTPState extends BaseState implements EventListener {
 
             saveFile = new RandomAccessFile(fileName, "rw");
             saveFileChannel = saveFile.getChannel();
-            msgEnd.clear();
+            msgEndBuff.clear();
             state = SMTPParseState.STATE_READ_DATA;
         } else if (isCommand("QUIT")) {
             sendReply(key, "221 Bye\r\n");
